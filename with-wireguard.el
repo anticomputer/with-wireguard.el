@@ -87,11 +87,15 @@ Returns a setconf compatible configuration."
         (with-temp-file conf
           (cl-loop for line in lines
                    do
-                   ;; filter any crud that's not wg-quick compatible
-                   (cond ((string-match "Address *= *\\(.*\\)? *\n*" line)
+                   ;; filter any crud that's not setconf compatible, grab what we need
+                   (cond ((string-match "^ *Address *= *\\(.*\\)? *\n*" line)
                           (setq address (match-string 1 line)))
-                         ((string-match "DNS *= *\\(.*\\)? *\n*" line)
+                         ((string-match "^ *DNS *= *\\(.*\\)? *\n*" line)
                           (setq dns (match-string 1 line)))
+                         ;; skip comments
+                         ((string-match-p "^#" line))
+                         ;; TODO: implement all these ... I guess
+                         ((string-match-p "^ *\\(?:MTU\\|Table\\|Table\\|PreUp\\|PostUp\\|PreDown\\|PostDown\\|SaveConfig\\)" line))
                          (t (insert (concat line "\n"))))))
         ;; return conf, address, dns
         (list conf address dns)))))
