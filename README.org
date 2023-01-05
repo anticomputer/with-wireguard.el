@@ -1,0 +1,24 @@
+* with-wireguard.el: elisp library for working with wireguard network namespaces
+
+with-wireguard.el provides primitives for managing a wireguard vpn inside a
+dedicated network namespace, this is useful to e.g. spawn a browser or
+terminal that requires access to certain network resources, without affecting
+any routing on main network namespace
+
+#+html:<p align="center"><img src="img/with-wireguard.png"/></p>
+
+* Usage
+
+Put with-wireguard.el in your ~load-path~ and ~(require 'with-wireguard)~
+
+You can start an application inside a network namespace with a given wireguard
+configuration using ~M-x with-wg-execute RET~
+
+To remove the namespace after you're done with the application you can use the
+~ip netns list~ and ~ip netns delete~ commands, respectively.
+
+Programmatically, you can use the ~with-wg--deflate-ns~ function.
+
+* Licensing
+
+This is free and unencumbered software released into the public domain.
