@@ -144,6 +144,7 @@ Optionally, override CONFIG with a list of ADDRESSES and DNS."
   (let* ((procbuf (get-buffer-create (format " *with-wireguard-%s*" namespace)))
          (ip (executable-find "ip"))
          ;; keep this as a list in case we want to add additional teardowns
+         ;; e.g. (,ip "-n" ,namespace "link" "set" ,interface "down")
          (deflate-cmds `((,ip "netns" "delete" ,namespace))))
     (cl-loop for args in deflate-cmds
              for cmd = (string-join args " ")
