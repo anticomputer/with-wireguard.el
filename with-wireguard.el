@@ -37,6 +37,7 @@
 ;; to heavy feature iteration, use at your own discretion
 
 ;;; Code
+(eval-when-compile (require 'subr))
 (eval-when-compile (require 'subr-x))
 (eval-when-compile (require 'cl-lib))
 
@@ -82,14 +83,18 @@ Returns a setconf compatible configuration."
                            (line-end-position))
                      (forward-line 1)))))
       (let ((conf (make-temp-file "wg"))
-            (address nil)
+            (addresses nil)
             (dns nil))
         (with-temp-file conf
           (cl-loop for line in lines
                    do
                    ;; filter any crud that's not setconf compatible, grab what we need
                    (cond ((string-match "^ *Address *= *\\(.*\\)? *\n*" line)
-                          (setq address (match-string 1 line)))
+                          (let ((address (match-string 1 line)))
+                            (if (string-match-p "," address)
+                                (setq addresses (append addresses (split-string address ",")))
+                              (setq addresses (append addresses (list address))))))
+                         ;; XXX: these can have multiple entries too, similar to addresses
                          ((string-match "^ *DNS *= *\\(.*\\)? *\n*" line)
                           (setq dns (match-string 1 line)))
                          ;; skip comments
@@ -98,16 +103,16 @@ Returns a setconf compatible configuration."
                          ((string-match-p "^ *\\(?:MTU\\|Table\\|Table\\|PreUp\\|PostUp\\|PreDown\\|PostDown\\|SaveConfig\\)" line))
                          (t (insert (concat line "\n"))))))
         ;; return conf, address, dns
-        (list conf address dns)))))
+        (list conf addresses dns)))))
 
 ;; XXX: TODO make this create a /etc/netns/namespace/resolv.conf if dns is set
-(defun with-wg--inflate-ns (config &optional address dns)
+(defun with-wg--inflate-ns (config &optional addresses dns)
   "Create a namespace for wireguard CONFIG.
 
-Optionally, override CONFIG with ADDRESS and DNS."
-  (cl-destructuring-bind (tmp-config conf-address conf-dns) (with-wg-quick-conf config)
+Optionally, override CONFIG with a list of ADDRESSES and DNS."
+  (cl-destructuring-bind (tmp-config conf-addresses conf-dns) (with-wg-quick-conf config)
     ;; allow user to override if they want, default to quick conf compatibility
-    (let* ((address (or address conf-address))
+    (let* ((addresses (or addresses conf-addresses))
            (_dns (or dns conf-dns))
            (interface (make-temp-name "if"))
            (namespace (make-temp-name "ns"))
@@ -116,13 +121,16 @@ Optionally, override CONFIG with ADDRESS and DNS."
            (ip (executable-find "ip"))
            (wg (executable-find "wg"))
            (inflate-cmds
-            `((,ip "netns" "add" ,namespace)
-              (,ip "link" "add" ,interface "type" "wireguard")
-              (,ip "link" "set" ,interface "netns" ,namespace)
-              (,ip "-n" ,namespace "addr" "add" ,address "dev" ,interface)
-              (,ip "netns" "exec" ,namespace ,wg "setconf" ,interface ,tmp-config)
-              (,ip "-n" ,namespace "link" "set" ,interface "up")
-              (,ip "-n" ,namespace "route" "add" "default" "dev" ,interface))))
+            (append
+             `((,ip "netns" "add" ,namespace)
+               (,ip "link" "add" ,interface "type" "wireguard")
+               (,ip "link" "set" ,interface "netns" ,namespace))
+             ;; interface can have multiple addresses out of configuration
+             (cl-loop for address in addresses collect
+                      (list ip "-n" namespace "addr" "add" address "dev" interface))
+             `((,ip "netns" "exec" ,namespace ,wg "setconf" ,interface ,tmp-config)
+               (,ip "-n" ,namespace "link" "set" ,interface "up")
+               (,ip "-n" ,namespace "route" "add" "default" "dev" ,interface)))))
       (cl-loop for args in inflate-cmds
                for cmd = (string-join args " ")
                do (with-wg--sudo-shell-command cmd procbuf))
@@ -136,6 +144,7 @@ Optionally, override CONFIG with ADDRESS and DNS."
   (let* ((procbuf (get-buffer-create (format " *with-wireguard-%s*" namespace)))
          (ip (executable-find "ip"))
          ;; keep this as a list in case we want to add additional teardowns
+         ;; e.g. (,ip "-n" ,namespace "link" "set" ,interface "down")
          (deflate-cmds `((,ip "netns" "delete" ,namespace))))
     (cl-loop for args in deflate-cmds
              for cmd = (string-join args " ")
