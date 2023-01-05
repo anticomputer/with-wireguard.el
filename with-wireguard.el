@@ -37,7 +37,6 @@
 ;; to heavy feature iteration, use at your own discretion
 
 ;;; Code
-(eval-when-compile (require 'subr))
 (eval-when-compile (require 'subr-x))
 (eval-when-compile (require 'cl-lib))
 
