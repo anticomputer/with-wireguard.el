@@ -55,7 +55,7 @@
 Only use this for long lived processes that need state awareness."
   ;; in case we want to juggle any buffer local state
   (with-current-buffer buffer
-    (message "Executing: %s" args)
+    (message "Spawning: %s" args)
     (let* ((tramp-connection-properties '((nil "session-timeout" nil)))
            (default-directory "/sudo:root@localhost:/tmp")
            (process (apply #'start-file-process name buffer args)))
