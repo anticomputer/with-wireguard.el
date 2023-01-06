@@ -35,7 +35,7 @@ exits.
   ;; this uses the auto-deflate-ns toggle to automatically teardown on exit
   (defun my/with-wg-proton-xterm ()
     (interactive)
-    (let ((xterm (executable-find "xterm"))
+    (let* ((xterm (executable-find "xterm"))
           (namespace
            (with-wg-execute
             "~/emacs/vpn/protonvpn/wireguard/proton-wireguard.conf"
