@@ -231,7 +231,9 @@ These commands run with sudo privileges, so tread carefully."
   (interactive "fWireguard config: \nsShell command: ")
   (with-wg (config) namespace
            ;; by default we deflate the ns when this command exits
-           (with-wg-shell-command cmd namespace auto-deflate-ns)))
+           (with-wg-shell-command cmd namespace auto-deflate-ns)
+           ;; in case folks want to still use this outside of emacs
+           namespace))
 
 (provide 'with-wireguard)
 ;;; with-wireguard.el ends here
