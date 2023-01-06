@@ -30,23 +30,13 @@ launcher for a wireguard network namespace:
   :ensure t
   :demand
   :config
-  ;; I usually just want to spawn an xterm and work from there
-  (defvar my/with-wg-proton-ns nil)
-
-  (defun my/with-wg-proton-stop ()
-    (interactive)
-    (when my/with-wg-proton-ns
-      (with-wg--deflate-ns my/with-wg-proton-ns)
-      (setq my/with-wg-proton-ns nil)))
-
+  ;; this uses the auto-deflate-ns toggle to automatically teardown on exit
   (defun my/with-wg-proton-start ()
     (interactive)
-    (when my/with-wg-proton-ns
-      (my/with-wg-proton-stop))
     (setq my/with-wg-proton-ns
           (with-wg-execute
            "~/emacs/vpn/protonvpn/wireguard/proton-wireguard.conf"
-           "xterm"))))
+           "xterm" t))))
 
 (provide 'my-wireguard-init)
 #+end_src
