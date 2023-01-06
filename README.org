@@ -19,6 +19,43 @@ To remove the namespace after you're done with the application you can use the
 
 Programmatically, you can use the ~with-wg--deflate-ns~ function.
 
+* Example
+
+My personal configuration provides an example of a simple application
+launcher for a wireguard network namespace:
+
+#+begin_src emacs-lisp
+(use-package with-wireguard
+  :quelpa (with-wireguard :fetcher github :repo "anticomputer/with-wireguard.el")
+  :ensure t
+  :demand
+  :config
+  ;; I usually just want to spawn an xterm and work from there
+  (defvar my/with-wg-proton-ns nil)
+
+  (defun my/with-wg-proton-stop ()
+    (interactive)
+    (when my/with-wg-proton-ns
+      (with-wg--deflate-ns my/with-wg-proton-ns)
+      (setq my/with-wg-proton-ns nil)))
+
+  (defun my/with-wg-proton-start ()
+    (interactive)
+    (when my/with-wg-proton-ns
+      (my/with-wg-stop))
+    (setq my/with-wg-proton-ns
+          (with-wg-execute
+           "~/emacs/vpn/protonvpn/wireguard/proton-wireguard.conf"
+           "xterm"))))
+
+(provide 'my-wireguard-init)
+#+end_src
+
+You could compose more involved state management on top of the primitives
+provided by with-wireguard.el but for my personal use I generally just want to
+spawn a single application within a given vpn, without affecting my main
+system network routing.
+
 * Licensing
 
 This is free and unencumbered software released into the public domain.
