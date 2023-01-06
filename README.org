@@ -33,7 +33,7 @@ exits.
   :demand
   :config
   ;; this uses the auto-deflate-ns toggle to automatically teardown on exit
-  (defun my/with-wg-proton-start ()
+  (defun my/with-wg-proton-xterm ()
     (interactive)
     (with-wg-execute
      "~/emacs/vpn/protonvpn/wireguard/proton-wireguard.conf"
