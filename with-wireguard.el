@@ -82,8 +82,11 @@ Returns a setconf compatible configuration."
                            (line-end-position))
                      (forward-line 1)))))
       (let ((conf (make-temp-file "wg"))
-            (addresses nil)
-            (dns nil))
+            (dns-conf (make-temp-file "ns"))
+            (addresses)
+            (nameservers)
+            (search))
+        ;; write our setconf conf
         (with-temp-file conf
           (cl-loop for line in lines
                    do
@@ -95,14 +98,28 @@ Returns a setconf compatible configuration."
                               (setq addresses (append addresses (list address))))))
                          ;; XXX: these can have multiple entries too, similar to addresses
                          ((string-match "^ *DNS *= *\\(.*\\)? *\n*" line)
-                          (setq dns (match-string 1 line)))
+                          (let* ((dns (match-string 1 line))
+                                 (entries (if (string-match-p "," dns)
+                                              (split-string dns ",")
+                                            (list dns))))
+                            (cl-loop for entry in entries do
+                                     (cond ((string-match-p "[a-zA-Z]" entry)
+                                            (setq search (cons entry search)))
+                                           (t (setq nameservers (cons entry nameservers)))))))
                          ;; skip comments
                          ((string-match-p "^#" line))
                          ;; TODO: implement all these ... I guess
                          ((string-match-p "^ *\\(?:MTU\\|Table\\|Table\\|PreUp\\|PostUp\\|PreDown\\|PostDown\\|SaveConfig\\)" line))
                          (t (insert (concat line "\n"))))))
+        ;; write our resolv conf
+        (with-temp-file dns-conf
+          (when search
+            (insert (concat "search " (string-join search " ") "\n")))
+          (when nameservers
+            (cl-loop for ns in nameservers do
+                     (insert (format "nameserver %s\n" ns)))))
         ;; return conf, address, dns
-        (list conf addresses dns)))))
+        (list conf addresses (when (or search nameservers) dns-conf))))))
 
 ;; XXX: TODO make this create a /etc/netns/namespace/resolv.conf if dns is set
 (defun with-wg--inflate-ns (config &optional addresses dns)
@@ -112,7 +129,7 @@ Optionally, override CONFIG with a list of ADDRESSES and DNS."
   (cl-destructuring-bind (tmp-config conf-addresses conf-dns) (with-wg-quick-conf config)
     ;; allow user to override if they want, default to quick conf compatibility
     (let* ((addresses (or addresses conf-addresses))
-           (_dns (or dns conf-dns))
+           (dns (or dns conf-dns))
            (interface (make-temp-name "if"))
            (namespace (make-temp-name "ns"))
            (procbuf (get-buffer-create (format " *with-wireguard-%s*" namespace)))
@@ -129,7 +146,11 @@ Optionally, override CONFIG with a list of ADDRESSES and DNS."
                       (list ip "-n" namespace "addr" "add" address "dev" interface))
              `((,ip "netns" "exec" ,namespace ,wg "setconf" ,interface ,tmp-config)
                (,ip "-n" ,namespace "link" "set" ,interface "up")
-               (,ip "-n" ,namespace "route" "add" "default" "dev" ,interface)))))
+               (,ip "-n" ,namespace "route" "add" "default" "dev" ,interface))
+             (when dns
+               `(("/bin/sh" "-c"
+                  ,(format "\"mkdir /etc/netns/%s && mv %s /etc/netns/%s/resolv.conf\""
+                           namespace dns namespace)))))))
       (cl-loop for args in inflate-cmds
                for cmd = (string-join args " ")
                do (with-wg--sudo-shell-command cmd procbuf))
@@ -144,7 +165,9 @@ Optionally, override CONFIG with a list of ADDRESSES and DNS."
          (ip (executable-find "ip"))
          ;; keep this as a list in case we want to add additional teardowns
          ;; e.g. (,ip "-n" ,namespace "link" "set" ,interface "down")
-         (deflate-cmds `((,ip "netns" "delete" ,namespace))))
+         (deflate-cmds
+           `((,ip "netns" "delete" ,namespace)
+             ("rm" "-rf" ,(format "/etc/netns/%s" namespace)))))
     (cl-loop for args in deflate-cmds
              for cmd = (string-join args " ")
              do (with-wg--sudo-shell-command cmd procbuf))
