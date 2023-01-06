@@ -46,8 +46,13 @@
   (cl-assert (equal 0 (shell-command cmd buffer)) t
              (format "Error executing: %s" cmd)))
 
+(defvar-local with-wg--deflate-ns-on-process-exit nil)
+(defvar-local with-wg--buffer-namespace nil)
+
 (defun with-wg--sudo-process (name buffer &rest args)
-  "Sudo exec a command ARGS as NAME and output to BUFFER."
+  "Sudo exec a command ARGS as NAME and output to BUFFER.
+
+Only use this for long lived processes that need state awareness."
   ;; in case we want to juggle any buffer local state
   (with-current-buffer buffer
     (message "Executing: %s" args)
@@ -55,9 +60,17 @@
            (default-directory "/sudo:root@localhost:/tmp")
            (process (apply #'start-file-process name buffer args)))
       (when (process-live-p process)
+        (set-process-sentinel
+         process (lambda (proc event)
+                   (unless (process-live-p proc)
+                     (with-current-buffer (process-buffer proc)
+                       (when (and with-wg--deflate-ns-on-process-exit
+                                  with-wg--buffer-namespace)
+                         (message "Process exited, auto-deflating namespace %s" with-wg--buffer-namespace)
+                         (with-wg--deflate-ns with-wg--buffer-namespace))))))
         (set-process-filter
-         process #'(lambda (_proc string)
-                     (mapc 'message (split-string string "\n"))))))))
+         process (lambda (_proc string)
+                   (mapc 'message (split-string string "\n"))))))))
 
 (defun with-wg--sudo-shell-command (cmd buffer)
   "Sudo exec a shell command CMD and output to BUFFER."
@@ -156,6 +169,9 @@ Optionally, override CONFIG with a list of ADDRESSES and DNS."
                do (with-wg--sudo-shell-command cmd procbuf))
       ;; delete the temporary config copy
       (delete-file tmp-config)
+      ;; set the namespace in the proc buffer
+      (with-current-buffer procbuf
+        (setq with-wg--buffer-namespace namespace))
       ;; return the namespace
       namespace)))
 
@@ -177,8 +193,10 @@ Optionally, override CONFIG with a list of ADDRESSES and DNS."
              do (with-wg--sudo-shell-command cmd procbuf))
     (kill-buffer procbuf)))
 
-(defun with-wg-shell-command (cmd namespace &optional user)
-  "Run shell command CMD in NAMESPACE as USER.
+(defun with-wg-shell-command (cmd namespace &optional auto-deflate-ns user)
+  "Run shell command CMD in NAMESPACE.
+
+Optionally AUTO-DEFLATE-NS on exit of the command &| run with USER privileges.
 
 CMD will be double quoted as an argument to /bin/sh -c, but does not receive
 other treatment. The user is expected to be aware of any caveats and ensure
@@ -187,6 +205,9 @@ they do not accidentally misquote or otherwise escape the argument.
 These commands run with sudo privileges, so tread carefully."
   (let ((user (or user (user-real-login-name)))
         (procbuf (get-buffer-create (format " *with-wireguard-%s*" namespace))))
+    ;; set deflate flag for process sentinel
+    (with-current-buffer procbuf
+      (setq with-wg--deflate-ns-on-process-exit auto-deflate-ns))
     (with-wg--sudo-process
      "wg: exec" procbuf
      "/bin/sh" "-c"
@@ -203,12 +224,12 @@ These commands run with sudo privileges, so tread carefully."
      ,@body))
 
 ;;;###autoload
-(defun with-wg-execute (config cmd)
+(defun with-wg-execute (config cmd &optional auto-deflate-ns)
   "Execute shell command CMD in a network namespace for wireguard CONFIG."
   (interactive "fWireguard config: \nsShell command: ")
   (with-wg (config) namespace
-           (with-wg-shell-command cmd namespace)
-           namespace))
+           ;; by default we deflate the ns when this command exits
+           (with-wg-shell-command cmd namespace auto-deflate-ns)))
 
 (provide 'with-wireguard)
 ;;; with-wireguard.el ends here
