@@ -66,6 +66,8 @@ Only use this for long lived processes that need state awareness."
                      (with-current-buffer (process-buffer proc)
                        (when (and with-wg--deflate-ns-on-process-exit
                                   with-wg--buffer-namespace)
+                         ;; prevent any repeat cleanup triggers through the sentinel
+                         (setq with-wg--deflate-ns-on-process-exit nil)
                          (message "Process exited, auto-deflating namespace %s" with-wg--buffer-namespace)
                          (with-wg--deflate-ns with-wg--buffer-namespace))))))
         (set-process-filter
