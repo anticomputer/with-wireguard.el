@@ -5,7 +5,7 @@
 ;; Author: Bas Alberts <bas@anti.computer>
 ;; URL: https://github.com/anticomputer/with-wireguard.el
 
-;; Version: 0.1.0-pre
+;; Version: 0.2.0-pre
 ;; Package-Requires: ((emacs "25") (cl-lib "0.5"))
 
 ;; Keywords: comm
