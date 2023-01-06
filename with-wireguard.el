@@ -174,14 +174,23 @@ Optionally, override CONFIG with a list of ADDRESSES and DNS."
     (kill-buffer procbuf)))
 
 (defun with-wg-shell-command (cmd namespace &optional user)
-  "Run shell command CMD in NAMESPACE as USER."
+  "Run shell command CMD in NAMESPACE as USER.
+
+CMD will be double quoted as an argument to /bin/sh -c, but does not receive
+other treatment. The user is expected to be aware of any caveats and ensure
+they do not accidentally misquote or otherwise escape the argument.
+
+These commands run with sudo privileges, so tread carefully."
   (let ((user (or user (user-real-login-name)))
         (procbuf (get-buffer-create (format " *with-wireguard-%s*" namespace))))
     (with-wg--sudo-process
      "wg: exec" procbuf
      "/bin/sh" "-c"
+     ;; careful here, easy to shoot yourself in the foot
+     ;; we do not shell quote command so it is up to you
+     ;; to ensure you're staying in the correct context
      (format "ip netns exec %s sudo -u %s /bin/sh -c \"%s\""
-             namespace user (shell-quote-argument cmd)))))
+             namespace user cmd))))
 
 ;; this expects lexical-binding to be t
 (cl-defmacro with-wg ((config) ns &body body)
