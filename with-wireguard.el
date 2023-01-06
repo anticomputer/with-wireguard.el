@@ -161,13 +161,17 @@ Optionally, override CONFIG with a list of ADDRESSES and DNS."
 
 (defun with-wg--deflate-ns (namespace)
   "Delete wireguard NAMESPACE."
+  (cl-assert (not (string-match-p "[./]" namespace)))
   (let* ((procbuf (get-buffer-create (format " *with-wireguard-%s*" namespace)))
          (ip (executable-find "ip"))
          ;; keep this as a list in case we want to add additional teardowns
          ;; e.g. (,ip "-n" ,namespace "link" "set" ,interface "down")
          (deflate-cmds
            `((,ip "netns" "delete" ,namespace)
-             ("rm" "-rf" ,(format "/etc/netns/%s" namespace)))))
+             ("rm" "-rf"
+              ,(format "/etc/netns/%s"
+                       ;; this should never be needed, but just in case
+                       (shell-quote-argument namespace))))))
     (cl-loop for args in deflate-cmds
              for cmd = (string-join args " ")
              do (with-wg--sudo-shell-command cmd procbuf))
