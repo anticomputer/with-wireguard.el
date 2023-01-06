@@ -33,10 +33,9 @@ launcher for a wireguard network namespace:
   ;; this uses the auto-deflate-ns toggle to automatically teardown on exit
   (defun my/with-wg-proton-start ()
     (interactive)
-    (setq my/with-wg-proton-ns
-          (with-wg-execute
-           "~/emacs/vpn/protonvpn/wireguard/proton-wireguard.conf"
-           "xterm" t))))
+    (with-wg-execute
+     "~/emacs/vpn/protonvpn/wireguard/proton-wireguard.conf"
+     "xterm" t)))
 
 (provide 'my-wireguard-init)
 #+end_src
