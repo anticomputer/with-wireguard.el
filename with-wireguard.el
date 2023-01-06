@@ -189,6 +189,7 @@ Optionally, override CONFIG with a list of ADDRESSES and DNS."
   `(let ((,ns (with-wg--inflate-ns (expand-file-name ,config))))
      ,@body))
 
+;;;###autoload
 (defun with-wg-execute (config cmd)
   "Execute shell command CMD in a network namespace for wireguard CONFIG."
   (interactive "fWireguard config: \nsShell command: ")
