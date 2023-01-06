@@ -42,7 +42,7 @@ launcher for a wireguard network namespace:
   (defun my/with-wg-proton-start ()
     (interactive)
     (when my/with-wg-proton-ns
-      (my/with-wg-stop))
+      (my/with-wg-proton-stop))
     (setq my/with-wg-proton-ns
           (with-wg-execute
            "~/emacs/vpn/protonvpn/wireguard/proton-wireguard.conf"
