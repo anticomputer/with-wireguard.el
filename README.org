@@ -35,20 +35,26 @@ exits.
   ;; this uses the auto-deflate-ns toggle to automatically teardown on exit
   (defun my/with-wg-proton-xterm ()
     (interactive)
-    (with-wg-execute
-     "~/emacs/vpn/protonvpn/wireguard/proton-wireguard.conf"
-     "xterm" t))
+    (let ((xterm (executable-find "xterm"))
+          (namespace
+           (with-wg-execute
+            "~/emacs/vpn/protonvpn/wireguard/proton-wireguard.conf"
+            (format "%s" xterm) t)))
+      (message "Spawning xterm in %s" namespace)))
 
   ;; fetcher
   (defun my/with-wg-proton-fetch (uri)
     (interactive "MFetch with wireguard (uri): ")
-    (with-wg-execute
-     "~/emacs/vpn/protonvpn/wireguard/proton-wireguard.conf"
-     (format "curl -s -O --output-dir /home/bas/Downloads -- %s"
-             (shell-quote-argument uri))
-     t)))
-
-(provide 'my-wireguard-init)
+    (let* ((curl (executable-find "curl"))
+           (namespace
+            (with-wg-execute
+             "~/emacs/vpn/protonvpn/wireguard/proton-wireguard.conf"
+             ;; wait a tiny bit for the link to init
+             (format "sleep 0.5 && %s -s -O --output-dir /home/bas/Downloads -- %s"
+                     curl
+                     (shell-quote-argument uri))
+             t)))
+      (message "Spawning curl in %s" uri namespace))))
 #+end_src
 
 You could compose more involved state management on top of the primitives
