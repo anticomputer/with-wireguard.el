@@ -21,8 +21,10 @@ Programmatically, you can use the ~with-wg--deflate-ns~ function.
 
 * Example
 
-My personal configuration provides an example of a simple application
-launcher for a wireguard network namespace:
+My personal configuration provides an example of a simple application launcher
+for a wireguard network namespace, as well as a simple fetcher. Both use the
+auto deflate flag which will automatically teardown the namespace when command
+exits.
 
 #+begin_src emacs-lisp
 (use-package with-wireguard
@@ -35,7 +37,16 @@ launcher for a wireguard network namespace:
     (interactive)
     (with-wg-execute
      "~/emacs/vpn/protonvpn/wireguard/proton-wireguard.conf"
-     "xterm" t)))
+     "xterm" t))
+
+  ;; fetcher
+  (defun my/with-wg-proton-fetch (uri)
+    (interactive "MFetch with wireguard (uri): ")
+    (with-wg-execute
+     "~/emacs/vpn/protonvpn/wireguard/proton-wireguard.conf"
+     (format "curl -s -O --output-dir /home/bas/Downloads -- %s"
+             (shell-quote-argument uri))
+     t)))
 
 (provide 'my-wireguard-init)
 #+end_src
