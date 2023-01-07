@@ -22,9 +22,12 @@ Programmatically, you can use the ~with-wg--deflate-ns~ function.
 * Example
 
 My personal configuration provides an example of a simple application launcher
-for a wireguard network namespace, as well as a simple fetcher. Both use the
+for a wireguard network namespace, as well as a simple fetcher. All use the
 auto deflate flag which will automatically teardown the namespace when command
-exits.
+exits. You'll note how this usage pattern lets you quickly compose a
+collection of independently vpn'd applications, such that your system traffic
+is isolated at the application level rather than sharing traffic patterns and
+signatures as a whole.
 
 #+begin_src emacs-lisp
 (use-package with-wireguard
@@ -32,23 +35,37 @@ exits.
   :ensure t
   :demand
   :config
-  ;; this uses the auto-deflate-ns toggle to automatically teardown on exit
+  ;; these use the auto-deflate-ns toggle to automatically teardown on exit
+
+  ;; chrome, secure core
+  (defun my/with-wg-proton-secure-chrome ()
+    (interactive)
+    (let* ((chrome (executable-find "firejail-google-chrome"))
+           (namespace
+            (with-wg-execute
+             "~/emacs/vpn/protonvpn/wireguard/dolores-secure.conf"
+             (format "%s --no-first-run --no-default-browser-check --no-crash-upload --incognito --user-data-dir=/tmp/%s"
+                     chrome (make-temp-name "chrome"))
+             t)))
+      (message "Spawning chrome in %s" namespace)))
+
+  ;; xterm, fastest
   (defun my/with-wg-proton-xterm ()
     (interactive)
     (let* ((xterm (executable-find "xterm"))
           (namespace
            (with-wg-execute
-            "~/emacs/vpn/protonvpn/wireguard/proton-wireguard.conf"
+            "~/emacs/vpn/protonvpn/wireguard/proton-xterm.conf"
             (format "%s" xterm) t)))
       (message "Spawning xterm in %s" namespace)))
 
-  ;; fetcher
+  ;; fetcher, fastest
   (defun my/with-wg-proton-fetch (uri)
     (interactive "MFetch with wireguard (uri): ")
     (let* ((curl (executable-find "curl"))
            (namespace
             (with-wg-execute
-             "~/emacs/vpn/protonvpn/wireguard/proton-wireguard.conf"
+             "~/emacs/vpn/protonvpn/wireguard/proton-fetch.conf"
              ;; wait a tiny bit for the link to init
              (format "sleep 0.5 && %s -s -O --output-dir /home/bas/Downloads -- %s"
                      curl
