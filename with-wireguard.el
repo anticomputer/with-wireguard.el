@@ -88,55 +88,52 @@ Only use this for long lived processes that need state awareness."
 Returns a setconf compatible configuration."
   (with-temp-buffer
     (insert-file-contents-literally (expand-file-name config) nil)
-    (let
-        ((lines
-          (cl-loop while (not (eobp))
-                   collect
-                   (prog1 (buffer-substring-no-properties
-                           (line-beginning-position)
-                           (line-end-position))
-                     (forward-line 1)))))
-      (let ((conf (make-temp-file "wg"))
-            (dns-conf (make-temp-file "ns"))
-            (addresses)
-            (nameservers)
-            (search))
-        ;; write our setconf conf
-        (with-temp-file conf
-          (cl-loop for line in lines
-                   do
-                   ;; filter any crud that's not setconf compatible, grab what we need
-                   (cond ((string-match "^ *Address *= *\\(.*\\)? *\n*" line)
-                          (let ((address (match-string 1 line)))
-                            (if (string-match-p "," address)
-                                (setq addresses (append addresses (split-string address ",")))
-                              (setq addresses (append addresses (list address))))))
-                         ;; XXX: these can have multiple entries too, similar to addresses
-                         ((string-match "^ *DNS *= *\\(.*\\)? *\n*" line)
-                          (let* ((dns (match-string 1 line))
-                                 (entries (if (string-match-p "," dns)
-                                              (split-string dns ",")
-                                            (list dns))))
-                            (cl-loop for entry in entries do
-                                     (cond ((string-match-p "[a-zA-Z]" entry)
-                                            (setq search (cons entry search)))
-                                           (t (setq nameservers (cons entry nameservers)))))))
-                         ;; skip comments
-                         ((string-match-p "^#" line))
-                         ;; TODO: implement all these ... I guess
-                         ((string-match-p "^ *\\(?:MTU\\|Table\\|Table\\|PreUp\\|PostUp\\|PreDown\\|PostDown\\|SaveConfig\\)" line))
-                         (t (insert (concat line "\n"))))))
-        ;; write our resolv conf
-        (with-temp-file dns-conf
-          (when search
-            (insert (concat "search " (string-join search " ") "\n")))
-          (when nameservers
-            (cl-loop for ns in nameservers do
-                     (insert (format "nameserver %s\n" ns)))))
-        ;; return conf, address, dns
-        (list conf addresses (when (or search nameservers) dns-conf))))))
+    (let ((lines
+           (cl-loop while (not (eobp))
+                    collect
+                    (prog1 (buffer-substring-no-properties
+                            (line-beginning-position)
+                            (line-end-position))
+                      (forward-line 1))))
+          (conf (make-temp-file "wg"))
+          (dns-conf (make-temp-file "ns"))
+          (addresses)
+          (nameservers)
+          (search))
+      ;; write our setconf conf
+      (with-temp-file conf
+        (cl-loop for line in lines
+                 do
+                 ;; filter any crud that's not setconf compatible, grab what we need
+                 (cond ((string-match "^ *Address *= *\\(.*\\)? *\n*" line)
+                        (let ((address (match-string 1 line)))
+                          (if (string-match-p "," address)
+                              (setq addresses (append addresses (split-string address ",")))
+                            (setq addresses (append addresses (list address))))))
+                       ((string-match "^ *DNS *= *\\(.*\\)? *\n*" line)
+                        (let* ((dns (match-string 1 line))
+                               (entries (if (string-match-p "," dns)
+                                            (split-string dns ",")
+                                          (list dns))))
+                          (cl-loop for entry in entries do
+                                   (cond ((string-match-p "[a-zA-Z]" entry)
+                                          (setq search (cons entry search)))
+                                         (t (setq nameservers (cons entry nameservers)))))))
+                       ;; skip comments
+                       ((string-match-p "^#" line))
+                       ;; TODO: implement all these ... I guess
+                       ((string-match-p "^ *\\(?:MTU\\|Table\\|Table\\|PreUp\\|PostUp\\|PreDown\\|PostDown\\|SaveConfig\\)" line))
+                       (t (insert (concat line "\n"))))))
+      ;; write our resolv conf
+      (with-temp-file dns-conf
+        (when search
+          (insert (concat "search " (string-join search " ") "\n")))
+        (when nameservers
+          (cl-loop for ns in nameservers do
+                   (insert (format "nameserver %s\n" ns)))))
+      ;; return conf, address, dns
+      (list conf addresses (when (or search nameservers) dns-conf)))))
 
-;; XXX: TODO make this create a /etc/netns/namespace/resolv.conf if dns is set
 (defun with-wg--inflate-ns (config &optional addresses dns)
   "Create a namespace for wireguard CONFIG.
 
