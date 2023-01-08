@@ -62,6 +62,7 @@ Only use this for long lived processes that need state awareness."
       (when (process-live-p process)
         (set-process-sentinel
          process (lambda (proc event)
+                   (message "Wireguard process event (%s)" (replace-regexp-in-string "\n\\'" "" event))
                    (unless (process-live-p proc)
                      (with-current-buffer (process-buffer proc)
                        (when (and with-wg--deflate-ns-on-process-exit
