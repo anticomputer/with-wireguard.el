@@ -79,6 +79,34 @@ provided by with-wireguard.el but for my personal use I generally just want to
 spawn a single application within a given vpn, without affecting my main
 system network routing.
 
+An example of direct use of the =with-wg= macro is provided below in the
+form of a =vterm= wireguard wrapper:
+
+#+begin_src emacs-lisp
+  ;; vterm with a wireguard namespace
+  (defun my/with-wg-proton-fast-vterm ()
+    (interactive)
+    (let* ((ip (executable-find "ip"))
+           (namespace
+            (with-wg
+             ("~/emacs/vpn/protonvpn/wireguard/dolores-secure.conf") ns ns))
+           (term
+            ;; hehe
+            (let ((vterm-shell
+                   (format "sudo -E %s netns exec %s sudo -E -u %s zsh"
+                           ip namespace (user-real-login-name))))
+              (vterm (format "*wireguard-%s*" namespace)))))
+      (switch-to-buffer (other-buffer term))
+      (switch-to-buffer-other-window term)
+      (with-current-buffer term
+        (setq-local with-wg--namespace namespace)
+        (setq-local vterm-exit-functions
+                    (append (list (lambda (proc event)
+                                    (with-wg--deflate-ns
+                                     with-wg--namespace)))
+                            vterm-exit-functions)))))
+#+end_src
+
 * Licensing
 
 This is free and unencumbered software released into the public domain.
